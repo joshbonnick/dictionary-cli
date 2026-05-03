@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+import os
 from urllib.parse import urlencode, quote
 from pathlib import Path
 import json
@@ -75,6 +75,18 @@ class SynonymResult:
             antonyms=entry.get("meta", {}).get("ants", []),
         )
 
+    @classmethod
+    def from_dict_api_entry(cls, entry: dict) -> "SynonymResult":
+        return cls(
+            word=entry["hwi"]['hw'],
+            part_of_speech=entry.get('fl', 'unknown'),
+            definitions=entry.get("shortdef", []),
+            syns=[],
+            related=[],
+            near_antonyms=[],
+            antonyms=[],
+        )
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -83,6 +95,11 @@ class SynonymResult:
             f"{'─' * 50}",
             f"# {self.word.upper()}  ({self.part_of_speech})",
         ]
+
+        if '*' in self.word:
+            safe_word = self.word.replace('*', r'\*')
+            lines.append(safe_word)
+
         if self.definitions:
             if len(self.definitions) > 1:
                 lines.append("## Definitions:")
@@ -99,22 +116,54 @@ class SynonymResult:
         return "\n".join(lines)
 
 def lookup_synonyms(word: str, ref: str = "thesaurus") -> list[SynonymResult]:
+    if debug:
+        print("[DEBUG]: Looking up synonyms for", word)
+
     response = requests.get(
         f"https://dictionaryapi.com/api/v3/references/{quote(ref)}/json/{quote(word)}?key={quote(SYNONYMS_KEY)}"
-    ).json()
+    )
 
+    response.raise_for_status()
+    response = response.json()
+
+    # The API returns an empty array if the word is not found.
+    # We put the first word back in the array so that we can use the same code for both cases.
+    if not isinstance(response, list) or len(response) == 0:
+        response = [word]
+
+    # The API returns an array of suggestions if the word is not found.
     if isinstance(response[0], str):
-        lines = [
-            f"{'─' * 50}",
-            f"[{word.upper()}] not found",
-            f"{'─' * 50}",
-        ]
-        lines.append(f"\nSuggestions:")
-        lines.extend([f"- {suggestion}" for suggestion in response])
-        print("\n".join(lines), "\n")
-        sys.exit(0)
+        # If we can't find the word, try looking it up in the dictionary.
+        if debug:
+            print("[DEBUG]: Couldn't find word in thesaurus, trying dictionary")
+
+        return lookup_dictionary(word)
 
     return [SynonymResult.from_api_entry(entry) for entry in response]
+
+def lookup_dictionary(word: str, ref: str = "collegiate") -> list[SynonymResult]:
+    response = requests.get(
+        f"https://www.dictionaryapi.com/api/v3/references/{quote(ref)}/json/{quote(word)}?key={quote(DICTIONARY_KEY)}"
+    )
+
+    response.raise_for_status()
+    response = response.json()
+
+    # The API returns an array of suggestions if the word is not found.
+    if not isinstance(response, list) or len(response) == 0:
+        os.system(f'echo "# {word.upper()}\nNot found and didn\'t return any suggestions" | glow -')
+        return []
+
+    if isinstance(response[0], str):
+        # If we can't find the word, lookup the first suggestion
+        if debug:
+            print("[DEBUG]: Couldn't find word in dictionary, trying first suggestion")
+
+        os.system(f'echo "{word.upper()} not found\n##Suggestions: {' '.join(response)}\n\nSearching for {response[0]}" | glow -')
+
+        return lookup_dictionary(response[0])
+
+    return [SynonymResult.from_dict_api_entry(entry) for entry in response]
 
 if len(sys.argv) < 2:
     print("Usage: dict <word>")
@@ -125,10 +174,11 @@ for i, arg in enumerate(sys.argv[1:]):
         enabled_caching = False
         continue
 
-    if arg == '--clear-cache':
+    if arg == '--clear-cache' or arg == '--cache-clear':
         if CACHE_FILE.exists():
             CACHE_FILE.unlink()
-        print('Cache cleared')
+        if debug:
+            print(f"[DEBUG]: Deleted cache file {CACHE_FILE}")
         continue
 
     if arg == '--show-related' or arg == '-r':
@@ -161,21 +211,263 @@ def lookup(word: str):
 
         synonyms = [SynonymResult(**synonym) for synonym in cached_synonyms]
     else:
-        if debug:
-            print("[DEBUG]: Looking up synonyms for", word)
-
         synonyms = lookup_synonyms(word)
 
         if enabled_caching:
             cache[word] = [synonyms.to_dict() for synonyms in synonyms]
-            save_cache(cache)
+
+            if (len(synonyms) > 0):
+                save_cache(cache)
+                if debug:
+                    print(f"[DEBUG]: Cached {len(synonyms)} synonyms for {word}")
 
     return synonyms
 
 synonyms = lookup(word)
 
+# We always want to show the most relevant synonyms first, so reverse the list if we're not limiting the number of results.
 if limit is None:
     synonyms.reverse()
 
+# Output with one call to glow.
+lines = []
 for syn in synonyms[:limit]:
-    print(syn, "\n\n")
+    lines.append(str(syn))
+
+os.system(f'echo "{'\n'.join(lines)}" | glow -')#!/usr/bin/python3
+import os
+from urllib.parse import urlencode, quote
+from pathlib import Path
+import json
+from dataclasses import dataclass, asdict
+import requests
+import sys
+import subprocess
+
+enabled_caching=True
+show_related=False
+debug=False
+limit=None
+
+CACHE_FILE = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
+CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+DICTIONARY_KEY = subprocess.check_output(
+    ['op', 'read', 'op://Personal/Dictionary API/Dictionary API Key'],
+    text=True
+).strip()
+
+SYNONYMS_KEY = subprocess.check_output(
+    ['op', 'read', 'op://Personal/Dictionary API/Thesaurus API Key'],
+    text=True
+).strip()
+
+def load_cache():
+    if CACHE_FILE.exists():
+        return json.loads(CACHE_FILE.read_text())
+    return {}
+
+def save_cache(cache: dict):
+    CACHE_FILE.write_text(json.dumps(cache))
+
+@dataclass
+class SynonymResult:
+    word: str
+    part_of_speech: str
+    definitions: list[str]
+    syns: list[str]
+    related: list[str]
+    near_antonyms: list[str]
+    antonyms: list[str]
+
+    @staticmethod
+    def _flatten_word_lists(nested: list) -> list[str]:
+        """Flatten lists of dicts like [[ {"wd": "home"}, {"wd": "abode"} ], ...] into a plain list of strings."""
+        return [
+            entry.get("wvrs", [{}])[0].get("wva", entry["wd"])  # prefer variant form if present
+            if entry.get("wvrs") else entry["wd"]
+            for group in nested
+            for entry in group
+        ]
+
+    @classmethod
+    def from_api_entry(cls, entry: dict) -> "SynonymResult":
+        senses = entry.get("def", [{}])[0].get("sseq", [])
+
+        syns, related, near_antonyms = [], [], []
+        for sense_block in senses:
+            for _, sense in sense_block:
+                syns      += cls._flatten_word_lists(sense.get("syn_list",  []))
+                related   += cls._flatten_word_lists(sense.get("rel_list",  []))
+                near_antonyms += cls._flatten_word_lists(sense.get("near_list", []))
+
+        return cls(
+            word=entry["hwi"]["hw"],
+            part_of_speech=entry.get("fl", "unknown"),
+            definitions=entry.get("shortdef", []),
+            syns=syns,
+            related=related,
+            near_antonyms=near_antonyms,
+            antonyms=entry.get("meta", {}).get("ants", []),
+        )
+
+    @classmethod
+    def from_dict_api_entry(cls, entry: dict) -> "SynonymResult":
+        return cls(
+            word=entry["hwi"]['hw'],
+            part_of_speech=entry.get('fl', 'unknown'),
+            definitions=entry.get("shortdef", []),
+            syns=[],
+            related=[],
+            near_antonyms=[],
+            antonyms=[],
+        )
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    def __str__(self) -> str:
+        lines = [
+            f"{'─' * 50}",
+            f"# {self.word.upper()}  ({self.part_of_speech})",
+        ]
+
+        if '*' in self.word:
+            safe_word = self.word.replace('*', r'\*')
+            lines.append(safe_word)
+
+        if self.definitions:
+            if len(self.definitions) > 1:
+                lines.append("## Definitions:")
+                lines += [f"  {i+1}. {d}" for i, d in enumerate(self.definitions)]
+            else:
+                lines.append(f"## Definition:\n{self.definitions[0]}")
+        if self.syns:
+            lines.append(f"\n## Synonyms:\n  {', '.join(self.syns)}")
+        if self.related and show_related:
+            lines.append(f"\n## Related words:\n  {', '.join(self.related)}")
+
+        lines.append(f"\n{'─' * 50}")
+
+        return "\n".join(lines)
+
+def lookup_synonyms(word: str, ref: str = "thesaurus") -> list[SynonymResult]:
+    if debug:
+        print("[DEBUG]: Looking up synonyms for", word)
+
+    response = requests.get(
+        f"https://dictionaryapi.com/api/v3/references/{quote(ref)}/json/{quote(word)}?key={quote(SYNONYMS_KEY)}"
+    )
+
+    response.raise_for_status()
+    response = response.json()
+
+    # The API returns an empty array if the word is not found.
+    # We put the first word back in the array so that we can use the same code for both cases.
+    if not isinstance(response, list) or len(response) == 0:
+        response = [word]
+
+    # The API returns an array of suggestions if the word is not found.
+    if isinstance(response[0], str):
+        # If we can't find the word, try looking it up in the dictionary.
+        if debug:
+            print("[DEBUG]: Couldn't find word in thesaurus, trying dictionary")
+
+        return lookup_dictionary(word)
+
+    return [SynonymResult.from_api_entry(entry) for entry in response]
+
+def lookup_dictionary(word: str, ref: str = "collegiate") -> list[SynonymResult]:
+    response = requests.get(
+        f"https://www.dictionaryapi.com/api/v3/references/{quote(ref)}/json/{quote(word)}?key={quote(DICTIONARY_KEY)}"
+    )
+
+    response.raise_for_status()
+    response = response.json()
+
+    # The API returns an array of suggestions if the word is not found.
+    if not isinstance(response, list) or len(response) == 0:
+        os.system(f'echo "# {word.upper()}\nNot found and didn\'t return any suggestions" | glow -')
+        return []
+
+    if isinstance(response[0], str):
+        # If we can't find the word, lookup the first suggestion
+        if debug:
+            print("[DEBUG]: Couldn't find word in dictionary, trying first suggestion")
+
+        os.system(f'echo "{word.upper()} not found\n##Suggestions: {' '.join(response)}\n\nSearching for {response[0]}" | glow -')
+
+        return lookup_dictionary(response[0])
+
+    return [SynonymResult.from_dict_api_entry(entry) for entry in response]
+
+if len(sys.argv) < 2:
+    print("Usage: dict <word>")
+    sys.exit(1)
+
+for i, arg in enumerate(sys.argv[1:]):
+    if arg == '--no-cache':
+        enabled_caching = False
+        continue
+
+    if arg == '--clear-cache' or arg == '--cache-clear':
+        if CACHE_FILE.exists():
+            CACHE_FILE.unlink()
+        if debug:
+            print(f"[DEBUG]: Deleted cache file {CACHE_FILE}")
+        continue
+
+    if arg == '--show-related' or arg == '-r':
+        show_related = True
+        continue
+
+    if arg == '--debug' or arg == '-d':
+        debug = True
+        continue
+
+    if arg == '--limit' or arg == '-l':
+        if i + 2 >= len(sys.argv):
+            raise ValueError("Limit must be followed by a number")
+
+        limit = int(sys.argv[i + 2])
+        continue
+
+word = sys.argv[1].lower()
+
+print(f"\033]0;Dictionary: {word}\007")
+
+cache = load_cache()
+
+def lookup(word: str):
+    if word in cache and enabled_caching:
+        cached_synonyms = cache[word]
+
+        if debug:
+            print(f"[DEBUG]: Using cached synonyms for {word} ({len(cached_synonyms)} entries)")
+
+        synonyms = [SynonymResult(**synonym) for synonym in cached_synonyms]
+    else:
+        synonyms = lookup_synonyms(word)
+
+        if enabled_caching:
+            cache[word] = [synonyms.to_dict() for synonyms in synonyms]
+
+            if (len(synonyms) > 0):
+                save_cache(cache)
+                if debug:
+                    print(f"[DEBUG]: Cached {len(synonyms)} synonyms for {word}")
+
+    return synonyms
+
+synonyms = lookup(word)
+
+# We always want to show the most relevant synonyms first, so reverse the list if we're not limiting the number of results.
+if limit is None:
+    synonyms.reverse()
+
+# Output with one call to glow.
+lines = []
+for syn in synonyms[:limit]:
+    lines.append(str(syn))
+
+os.system(f'echo "{'\n'.join(lines)}" | glow -')
