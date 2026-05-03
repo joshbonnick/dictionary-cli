@@ -7,21 +7,15 @@ import requests
 import sys
 import subprocess
 import json
+import os
 
 enabled_caching=True
 show_related=False
 debug=False
 limit=None
 
-DICTIONARY_KEY = subprocess.check_output(
-    ['op', 'read', 'op://Personal/Dictionary API/Dictionary API Key'],
-    text=True
-).strip()
-
-SYNONYMS_KEY = subprocess.check_output(
-    ['op', 'read', 'op://Personal/Dictionary API/Thesaurus API Key'],
-    text=True
-).strip()
+DICTIONARY_KEY = os.environ["DICTIONARY_KEY"]
+SYNONYMS_KEY = os.environ["SYNONYMS_KEY"]
 
 try:
     GLOW_INSTALLED = subprocess.check_output(['which', 'glow']).strip() != ''
