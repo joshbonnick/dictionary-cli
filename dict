@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import requests
 import sys
 import subprocess
+import json
 
 enabled_caching=True
 show_related=False
@@ -22,21 +23,21 @@ SYNONYMS_KEY = subprocess.check_output(
 ).strip()
 
 class Cache:
-    CACHE_FILE = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    cache_file = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
 
     cache: dict[str, dict]
-    _instance: Cache | None = None
+    _instance: "Cache"
 
-    def __new__(cls):
+    def __new__(cls) -> "Cache":
         if cls._instance is not None:
             return cls._instance
 
         return cls()
 
     def load(self):
-        if CACHE_FILE.exists():
-            cache = json.loads(CACHE_FILE.read_text())
+        if self.cache_file.exists():
+            cache = json.loads(self.cache_file.read_text())
         else:
             cache = {}
 
@@ -45,7 +46,7 @@ class Cache:
         return cache
 
     def save(self):
-        CACHE_FILE.write_text(json.dumps(self.cache))
+        self.cache_file.write_text(json.dumps(self.cache))
 
     def get(self, word: str) -> dict | None:
         return self.cache.get(word)
@@ -216,10 +217,10 @@ word = sys.argv[1].lower()
 
 print(f"\033]0;Dictionary: {word}\007")
 
-cache_storage = load_cache()
+cache = Cache()
 
 def lookup(word: str):
-    if word in cache_storage and enabled_caching:
+    if cache.get(word) is not None and enabled_caching:
         cached_synonyms = cache_storage[word]
 
         if debug:
