@@ -29,7 +29,7 @@ class Cache:
     cache_file = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
     cache_file.parent.mkdir(parents=True, exist_ok=True)
 
-    cache: dict[str, dict] = {}
+    cache: dict[str, list[dict]] = {}
 
     def __new__(cls, *args, **kwargs) -> "Cache":
         if cls._instance is None:
@@ -50,7 +50,12 @@ class Cache:
     def save(self):
         self.cache_file.write_text(json.dumps(self.cache))
 
-    def get(self, word: str) -> dict | None:
+    def set(self, word: str, synonyms: list[dict]):
+        self.cache[word] = synonyms
+
+        return synonyms
+
+    def get(self, word: str) -> list[dict] | None:
         return self.cache.get(word)
 
 @dataclass
@@ -222,9 +227,9 @@ print(f"\033]0;Dictionary: {word}\007")
 cache = Cache()
 
 def lookup(word: str):
-    if cache.get(word) is not None and enabled_caching:
-        cached_synonyms = cache_storage[word]
+    cached_synonyms = cache.get(word)
 
+    if cached_synonyms is not None and enabled_caching:
         if debug:
             print(f"[DEBUG]: Using cached synonyms for {word} ({len(cached_synonyms)} entries)")
 
@@ -233,10 +238,10 @@ def lookup(word: str):
         synonyms = lookup_synonyms(word)
 
         if enabled_caching:
-            cache_storage[word] = [synonyms.to_dict() for synonyms in synonyms]
+            cache.set(word, [synonyms.to_dict() for synonyms in synonyms])
 
             if (len(synonyms) > 0):
-                save_cache(cache_storage)
+                cache.save()
                 if debug:
                     print(f"[DEBUG]: Cached {len(synonyms)} synonyms for {word}")
 
