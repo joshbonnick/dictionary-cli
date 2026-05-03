@@ -1,9 +1,7 @@
 #!/usr/bin/python3
 import os
-from urllib.parse import urlencode, quote
 from pathlib import Path
-import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 import requests
 import sys
 import subprocess
