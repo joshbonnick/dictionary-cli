@@ -26,7 +26,7 @@ SYNONYMS_KEY = subprocess.check_output(
 class Cache:
     _instance = None
 
-    cache_file = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
+    cache_file = Path.home() / ".cache/dict" / "lookups" # ~/.cache/dict/lookups
     cache_file.parent.mkdir(parents=True, exist_ok=True)
 
     cache: dict[str, list[dict]] = {}
