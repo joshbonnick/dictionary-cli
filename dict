@@ -101,7 +101,7 @@ def lookup_synonyms(word: str, ref: str = "thesaurus") -> list[SynonymResult]:
         f"https://dictionaryapi.com/api/v3/references/{quote(ref)}/json/{quote(word)}?key={quote(SYNONYMS_KEY)}"
     ).json()
 
-    return [SynonymResult.from_api_entry(entry) for entry in response[:1]]
+    return [SynonymResult.from_api_entry(entry) for entry in response]
 
 if len(sys.argv) < 2:
     print("Usage: dict <word>")
@@ -145,7 +145,8 @@ def lookup(word: str):
             synonyms.append(SynonymResult(**synonym))
     else:
         if debug:
-            print("[DEBUG]: Looking up synonyms for", word, "using", ref, "reference")
+            print("[DEBUG]: Looking up synonyms for", word)
+
         synonyms = lookup_synonyms(word)
 
         if enabled_caching:
