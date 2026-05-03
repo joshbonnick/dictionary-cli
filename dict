@@ -266,11 +266,11 @@ for index, entry in enumerate(synonyms[:limit]):
     lines.append(str(entry))
 
     if index < entry_count - 1:
-        lines.append(f"\n{'─' * 125}")
+        lines.append(f"\n{'─' * 50}")
 
 content = '\n'.join(lines)
 if GLOW_INSTALLED:
-    os.system(f'echo "{content}" | glow -w 125 -')
+    os.system(f'echo "{content}" | glow -')
 else:
     print(content)
 
@@ -282,4 +282,4 @@ if AI_INSTALLED:
               f"Use British English spelling. ")
 
     ai_usage_examples = subprocess.check_output(['ai', '--raw', prompt], text=True).strip()
-    os.system(f'echo "## Usage Examples\n{ai_usage_examples}" | glow -w 125')
+    os.system(f'echo "## Usage Examples\n{ai_usage_examples}" | glow')
