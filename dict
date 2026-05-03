@@ -34,7 +34,7 @@ class Cache:
         if cls._instance is not None:
             return cls._instance
 
-        return cls()
+        return super().__new__(cls)
 
     def load(self):
         if self.cache_file.exists():
