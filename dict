@@ -23,6 +23,11 @@ SYNONYMS_KEY = subprocess.check_output(
     text=True
 ).strip()
 
+try:
+    GLOW_INSTALLED = subprocess.check_output(['which', 'glow']).strip() != ''
+except:
+    GLOW_INSTALLED = False
+
 class Cache:
     _instance = None
 
@@ -262,4 +267,8 @@ for index, entry in enumerate(synonyms[:limit]):
     if index < entry_count - 1:
         lines.append(f"\n{'─' * 125}")
 
-os.system(f'echo "{'\n'.join(lines)}" | glow -w 125 -')
+content = '\n'.join(lines)
+if GLOW_INSTALLED:
+    os.system(f'echo "{content}" | glow -w 125 -')
+else:
+    print(content)
