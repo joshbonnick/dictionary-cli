@@ -34,6 +34,7 @@ class Cache:
     def __new__(cls, *args, **kwargs) -> "Cache":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
+            cls._instance.load()
 
         return cls._instance
 
@@ -258,6 +259,6 @@ for index, entry in enumerate(synonyms[:limit]):
     lines.append(str(entry))
 
     if index < entry_count - 1:
-        lines.append(f"{'─' * 125}")
+        lines.append(f"\n{'─' * 125}")
 
 os.system(f'echo "{'\n'.join(lines)}" | glow -w 125 -')
