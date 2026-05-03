@@ -140,7 +140,7 @@ for i, arg in enumerate(sys.argv[1:]):
         continue
 
     if arg == '--limit' or arg == '-l':
-        if i + 1 > len(sys.argv):
+        if i + 2 >= len(sys.argv):
             raise ValueError("Limit must be followed by a number")
 
         limit = int(sys.argv[i + 2])
@@ -174,8 +174,8 @@ def lookup(word: str):
 
 synonyms = lookup(word)
 
-# Reversed so that the first synonym is the most relevant
-synonyms.reverse()
+if limit is None:
+    synonyms.reverse()
 
 for syn in synonyms[:limit]:
     print(syn, "\n\n")
