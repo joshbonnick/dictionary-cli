@@ -25,7 +25,7 @@ SYNONYMS_KEY = subprocess.check_output(
 
 try:
     GLOW_INSTALLED = subprocess.check_output(['which', 'glow']).strip() != ''
-except:
+except subprocess.CalledProcessError:
     GLOW_INSTALLED = False
 
 class Cache:
