@@ -28,10 +28,7 @@ SYNONYMS_KEY = subprocess.check_output(
 def load_cache():
     if CACHE_FILE.exists():
         return json.loads(CACHE_FILE.read_text())
-    return {
-        'definitions': {},
-        'synonyms': {},
-    }
+    return {}
 
 def save_cache(cache: dict):
     CACHE_FILE.write_text(json.dumps(cache))
@@ -87,8 +84,11 @@ class SynonymResult:
             f"{'─' * 50}",
         ]
         if self.definitions:
-            lines.append("Definitions:")
-            lines += [f"  {i+1}. {d}" for i, d in enumerate(self.definitions)]
+            if len(self.definitions) > 1:
+                lines.append("Definitions:")
+                lines += [f"  {i+1}. {d}" for i, d in enumerate(self.definitions)]
+            else:
+                lines.append(f"Definition:\n{self.definitions[0]}")
         if self.syns:
             lines.append(f"\nSynonyms:\n  {', '.join(self.syns)}")
         if self.related and show_related:
@@ -126,16 +126,15 @@ for arg in sys.argv[1:]:
         debug = True
         continue
 
-word = sys.argv[1]
+word = sys.argv[1].lower()
 
 print(f"\033]0;Dictionary: {word}\007")
 
 cache = load_cache()
 
 def lookup(word: str):
-    # if word in cache['definitions'] and word in cache['synonyms'] and enabled_caching:
-    if word in cache['synonyms'] and enabled_caching:
-        cached_synonyms = cache['synonyms'][word]
+    if word in cache and enabled_caching:
+        cached_synonyms = cache[word]
 
         if debug:
             print(f"[DEBUG]: Using cached synonyms for {word} ({len(cached_synonyms)} entries)")
@@ -148,7 +147,7 @@ def lookup(word: str):
         synonyms = lookup_synonyms(word)
 
         if enabled_caching:
-            cache['synonyms'][word] = [synonyms.to_dict() for synonyms in synonyms]
+            cache[word] = [synonyms.to_dict() for synonyms in synonyms]
             save_cache(cache)
 
     return synonyms
