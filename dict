@@ -23,6 +23,12 @@ except subprocess.CalledProcessError as e:
     e.add_note("Glow is not installed")
     GLOW_INSTALLED = False
 
+try:
+    AI_INSTALLED = subprocess.check_output(['which', 'ai']).strip() != ''
+except subprocess.CalledProcessError as e:
+    e.add_note("ai is not installed")
+    AI_INSTALLED = False
+
 class Cache:
     _instance = None
 
@@ -267,3 +273,7 @@ if GLOW_INSTALLED:
     os.system(f'echo "{content}" | glow -w 125 -')
 else:
     print(content)
+
+if AI_INSTALLED:
+    ai_usage_examples = subprocess.check_output(['ai', '--raw', f'"write three sentences making use of the word: [{word}]. Use a new line to separate each sentence, starting each with line with a dash."'], text=True).strip()
+    os.system(f'echo "## AI Usage Examples\n{ai_usage_examples}" | glow -w 125')
