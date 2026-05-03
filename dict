@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from urllib.parse import quote
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import requests
 import sys
 import subprocess
@@ -24,17 +24,18 @@ SYNONYMS_KEY = subprocess.check_output(
 ).strip()
 
 class Cache:
+    _instance = None
+
     cache_file = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
     cache_file.parent.mkdir(parents=True, exist_ok=True)
 
-    cache: dict[str, dict]
-    _instance: "Cache"
+    cache: dict[str, dict] = {}
 
-    def __new__(cls) -> "Cache":
-        if cls._instance is not None:
-            return cls._instance
+    def __new__(cls, *args, **kwargs) -> "Cache":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
 
-        return super().__new__(cls)
+        return cls._instance
 
     def load(self):
         if self.cache_file.exists():
