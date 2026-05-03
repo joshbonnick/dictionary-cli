@@ -140,9 +140,7 @@ def lookup(word: str):
         if debug:
             print(f"[DEBUG]: Using cached synonyms for {word} ({len(cached_synonyms)} entries)")
 
-        synonyms = []
-        for synonym in cached_synonyms:
-            synonyms.append(SynonymResult(**synonym))
+        synonyms = [SynonymResult(**synonym) for synonym in cached_synonyms]
     else:
         if debug:
             print("[DEBUG]: Looking up synonyms for", word)
