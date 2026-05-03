@@ -190,7 +190,7 @@ def lookup_dictionary(word: str, ref: str = "collegiate") -> list[SynonymResult]
         if debug:
             print("[DEBUG]: Couldn't find word in dictionary, trying first suggestion")
 
-        os.system(f'echo "{word.upper()} not found\n## Suggestions:\n {' '.join(response)}\n\nSearching for {response[0]}" | glow -')
+        os.system(f'echo "{word.upper()} not found\n## Suggestions:\n {', '.join(response)}\n\nSearching for {response[0]}" | glow -')
 
         return lookup_dictionary(response[0])
 
