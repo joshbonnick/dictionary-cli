@@ -115,11 +115,9 @@ class SynonymResult:
         return asdict(self)
 
     def __str__(self) -> str:
-        lines = [
-            f"{'─' * 50}",
-            f"# {self.word.upper()}  ({self.part_of_speech})",
-        ]
+        lines = [f"# {self.word.upper()}  ({self.part_of_speech})",]
 
+        # Escape asterisks in the word for glow.
         if '*' in self.word:
             safe_word = self.word.replace('*', r'\*')
             lines.append(safe_word)
@@ -134,8 +132,6 @@ class SynonymResult:
             lines.append(f"\n## Synonyms:\n  {', '.join(self.syns)}")
         if self.related and show_related:
             lines.append(f"\n## Related words:\n  {', '.join(self.related)}")
-
-        lines.append(f"\n{'─' * 50}")
 
         return "\n".join(lines)
 
@@ -226,7 +222,7 @@ print(f"\033]0;Dictionary: {word}\007")
 
 cache = Cache()
 
-def lookup(word: str):
+def lookup(word: str) -> list[SynonymResult] | None:
     cached_synonyms = cache.get(word)
 
     if cached_synonyms is not None and enabled_caching:
@@ -248,6 +244,8 @@ def lookup(word: str):
     return synonyms
 
 synonyms = lookup(word)
+if synonyms is None:
+    sys.exit(0)
 
 # We always want to show the most relevant synonyms first, so reverse the list if we're not limiting the number of results.
 if limit is None:
@@ -255,7 +253,11 @@ if limit is None:
 
 # Output with one call to glow.
 lines = []
-for syn in synonyms[:limit]:
-    lines.append(str(syn))
+entry_count = len(synonyms)
+for index, entry in enumerate(synonyms[:limit]):
+    lines.append(str(entry))
 
-os.system(f'echo "{'\n'.join(lines)}" | glow -')
+    if index < entry_count - 1:
+        lines.append(f"{'─' * 125}")
+
+os.system(f'echo "{'\n'.join(lines)}" | glow -w 125 -')
