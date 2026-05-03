@@ -15,6 +15,7 @@ It also shells out to [glow](https://github.com/charmbracelet/glow) (if it is in
 ### Optional
 
 - `glow`
+- `ai` - [A shell script to trigger some form of LLM](https://github.com/joshbonnick/local-llm-scripts/blob/main/ai).
 
 Install Python dependencies with:
 
