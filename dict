@@ -275,5 +275,9 @@ else:
     print(content)
 
 if AI_INSTALLED:
-    ai_usage_examples = subprocess.check_output(['ai', '--raw', f'"write three sentences making use of the word: [{word}]. Use a new line to separate each sentence, starting each with line with a dash."'], text=True).strip()
+    prompt = (f"write three sentences making use of the word: [{word}] and its variants. "
+              f"Use a new line to separate each sentence, starting each with line with a dash. "
+              f"Highlight the word with **")
+
+    ai_usage_examples = subprocess.check_output(['ai', '--raw', prompt], text=True).strip()
     os.system(f'echo "## AI Usage Examples\n{ai_usage_examples}" | glow -w 125')
