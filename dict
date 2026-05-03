@@ -278,8 +278,9 @@ if AI_INSTALLED:
     prompt = (f"Content: {content}\n\n"
               f"Instructions: Write three sentences making use of the word: [{word}] and its variants. "
               f"Use a new line to separate each sentence, starting each with line with a dash. "
+              f"If there is more than one meaning, write three sentences for each meaning. "
               f"Highlight the word with **"
-              f"Use British English spelling. ")
+              f"Use British English spelling.")
 
     ai_usage_examples = subprocess.check_output(['ai', '--raw', prompt], text=True).strip()
     os.system(f'echo "## Usage Examples\n{ai_usage_examples}" | glow')
