@@ -281,4 +281,4 @@ if AI_INSTALLED:
               f"Use British English spelling. ")
 
     ai_usage_examples = subprocess.check_output(['ai', '--raw', prompt], text=True).strip()
-    os.system(f'echo "## AI Usage Examples\n{ai_usage_examples}" | glow -w 125')
+    os.system(f'echo "## Usage Examples\n{ai_usage_examples}" | glow -w 125')
