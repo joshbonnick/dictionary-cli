@@ -1,0 +1,160 @@
+#!/usr/bin/python3
+
+from urllib.parse import urlencode, quote
+from pathlib import Path
+import json
+from dataclasses import dataclass, asdict
+import requests
+import sys
+import subprocess
+
+enabled_caching=True
+show_related=False
+debug=False
+
+CACHE_FILE = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
+CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+DICTIONARY_KEY = subprocess.check_output(
+    ['op', 'read', 'op://Personal/Dictionary API/Dictionary API Key'],
+    text=True
+).strip()
+
+SYNONYMS_KEY = subprocess.check_output(
+    ['op', 'read', 'op://Personal/Dictionary API/Thesaurus API Key'],
+    text=True
+).strip()
+
+def load_cache():
+    if CACHE_FILE.exists():
+        return json.loads(CACHE_FILE.read_text())
+    return {
+        'definitions': {},
+        'synonyms': {},
+    }
+
+def save_cache(cache: dict):
+    CACHE_FILE.write_text(json.dumps(cache))
+
+@dataclass
+class SynonymResult:
+    word: str
+    part_of_speech: str
+    definitions: list[str]
+    syns: list[str]
+    related: list[str]
+    near_antonyms: list[str]
+    antonyms: list[str]
+
+    @staticmethod
+    def _flatten_word_lists(nested: list) -> list[str]:
+        """Flatten lists of dicts like [[ {"wd": "home"}, {"wd": "abode"} ], ...] into a plain list of strings."""
+        return [
+            entry.get("wvrs", [{}])[0].get("wva", entry["wd"])  # prefer variant form if present
+            if entry.get("wvrs") else entry["wd"]
+            for group in nested
+            for entry in group
+        ]
+
+    @classmethod
+    def from_api_entry(cls, entry: dict) -> "SynonymResult":
+        senses = entry.get("def", [{}])[0].get("sseq", [])
+
+        syns, related, near_antonyms = [], [], []
+        for sense_block in senses:
+            for _, sense in sense_block:
+                syns      += cls._flatten_word_lists(sense.get("syn_list",  []))
+                related   += cls._flatten_word_lists(sense.get("rel_list",  []))
+                near_antonyms += cls._flatten_word_lists(sense.get("near_list", []))
+
+        return cls(
+            word=entry["hwi"]["hw"],
+            part_of_speech=entry.get("fl", "unknown"),
+            definitions=entry.get("shortdef", []),
+            syns=syns,
+            related=related,
+            near_antonyms=near_antonyms,
+            antonyms=entry.get("meta", {}).get("ants", []),
+        )
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    def __str__(self) -> str:
+        lines = [
+            f"{'─' * 50}",
+            f"  {self.word.upper()}  ({self.part_of_speech})",
+            f"{'─' * 50}",
+        ]
+        if self.definitions:
+            lines.append("Definitions:")
+            lines += [f"  {i+1}. {d}" for i, d in enumerate(self.definitions)]
+        if self.syns:
+            lines.append(f"\nSynonyms:\n  {', '.join(self.syns)}")
+        if self.related and show_related:
+            lines.append(f"\nRelated words:\n  {', '.join(self.related)}")
+        return "\n".join(lines)
+
+
+def lookup_synonyms(word: str, ref: str = "thesaurus") -> list[SynonymResult]:
+    response = requests.get(
+        f"https://dictionaryapi.com/api/v3/references/{quote(ref)}/json/{quote(word)}?key={quote(SYNONYMS_KEY)}"
+    ).json()
+
+    return [SynonymResult.from_api_entry(entry) for entry in response[:1]]
+
+if len(sys.argv) < 2:
+    print("Usage: dict <word>")
+    sys.exit(1)
+
+for arg in sys.argv[1:]:
+    if arg == '--no-cache':
+        enabled_caching = False
+        continue
+
+    if arg == '--clear-cache':
+        if CACHE_FILE.exists():
+            CACHE_FILE.unlink()
+        print('Cache cleared')
+        continue
+
+    if arg == '--show-related' or arg == '-r':
+        show_related = True
+        continue
+
+    if arg == '--debug' or arg == '-d':
+        debug = True
+        continue
+
+word = sys.argv[1]
+
+print(f"\033]0;Dictionary: {word}\007")
+
+cache = load_cache()
+
+def lookup(word: str):
+    # if word in cache['definitions'] and word in cache['synonyms'] and enabled_caching:
+    if word in cache['synonyms'] and enabled_caching:
+        cached_synonyms = cache['synonyms'][word]
+
+        if debug:
+            print(f"[DEBUG]: Using cached synonyms for {word} ({len(cached_synonyms)} entries)")
+
+        synonyms = []
+        for synonym in cached_synonyms:
+            synonyms.append(SynonymResult(**synonym))
+    else:
+        if debug:
+            print("[DEBUG]: Looking up synonyms for", word, "using", ref, "reference")
+        synonyms = lookup_synonyms(word)
+
+        if enabled_caching:
+            cache['synonyms'][word] = [synonyms.to_dict() for synonyms in synonyms]
+            save_cache(cache)
+
+    return synonyms
+
+synonyms = lookup(word)
+
+for syn in synonyms:
+    print(syn)
