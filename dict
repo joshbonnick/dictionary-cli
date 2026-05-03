@@ -59,6 +59,10 @@ class Cache:
     def get(self, word: str) -> list[dict] | None:
         return self.cache.get(word)
 
+    def clear(self):
+        self.cache = {}
+        self.save()
+
 @dataclass
 class SynonymResult:
     word: str
@@ -190,16 +194,15 @@ if len(sys.argv) < 2:
     print("Usage: dict <word>")
     sys.exit(1)
 
+cache = Cache()
+
 for i, arg in enumerate(sys.argv[1:]):
     if arg == '--no-cache':
         enabled_caching = False
         continue
 
     if arg == '--clear-cache' or arg == '--cache-clear':
-        if CACHE_FILE.exists():
-            CACHE_FILE.unlink()
-        if debug:
-            print(f"[DEBUG]: Deleted cache file {CACHE_FILE}")
+        cache.clear()
         continue
 
     if arg == '--show-related' or arg == '-r':
@@ -220,8 +223,6 @@ for i, arg in enumerate(sys.argv[1:]):
 word = sys.argv[1].lower()
 
 print(f"\033]0;Dictionary: {word}\007")
-
-cache = Cache()
 
 def lookup(word: str) -> list[SynonymResult] | None:
     cached_synonyms = cache.get(word)
