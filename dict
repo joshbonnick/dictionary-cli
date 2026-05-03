@@ -11,6 +11,7 @@ import subprocess
 enabled_caching=True
 show_related=False
 debug=False
+limit=None
 
 CACHE_FILE = Path.home() / ".cache" / "dict_cache.json" # ~/.cache/dict_cache.json
 CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -80,26 +81,38 @@ class SynonymResult:
     def __str__(self) -> str:
         lines = [
             f"{'─' * 50}",
-            f"  {self.word.upper()}  ({self.part_of_speech})",
-            f"{'─' * 50}",
+            f"# {self.word.upper()}  ({self.part_of_speech})",
         ]
         if self.definitions:
             if len(self.definitions) > 1:
-                lines.append("Definitions:")
+                lines.append("## Definitions:")
                 lines += [f"  {i+1}. {d}" for i, d in enumerate(self.definitions)]
             else:
-                lines.append(f"Definition:\n{self.definitions[0]}")
+                lines.append(f"## Definition:\n{self.definitions[0]}")
         if self.syns:
-            lines.append(f"\nSynonyms:\n  {', '.join(self.syns)}")
+            lines.append(f"\n## Synonyms:\n  {', '.join(self.syns)}")
         if self.related and show_related:
-            lines.append(f"\nRelated words:\n  {', '.join(self.related)}")
-        return "\n".join(lines)
+            lines.append(f"\n## Related words:\n  {', '.join(self.related)}")
 
+        lines.append(f"\n{'─' * 50}")
+
+        return "\n".join(lines)
 
 def lookup_synonyms(word: str, ref: str = "thesaurus") -> list[SynonymResult]:
     response = requests.get(
         f"https://dictionaryapi.com/api/v3/references/{quote(ref)}/json/{quote(word)}?key={quote(SYNONYMS_KEY)}"
     ).json()
+
+    if isinstance(response[0], str):
+        lines = [
+            f"{'─' * 50}",
+            f"[{word.upper()}] not found",
+            f"{'─' * 50}",
+        ]
+        lines.append(f"\nSuggestions:")
+        lines.extend([f"- {suggestion}" for suggestion in response])
+        print("\n".join(lines), "\n")
+        sys.exit(0)
 
     return [SynonymResult.from_api_entry(entry) for entry in response]
 
@@ -107,7 +120,7 @@ if len(sys.argv) < 2:
     print("Usage: dict <word>")
     sys.exit(1)
 
-for arg in sys.argv[1:]:
+for i, arg in enumerate(sys.argv[1:]):
     if arg == '--no-cache':
         enabled_caching = False
         continue
@@ -124,6 +137,13 @@ for arg in sys.argv[1:]:
 
     if arg == '--debug' or arg == '-d':
         debug = True
+        continue
+
+    if arg == '--limit' or arg == '-l':
+        if i + 1 > len(sys.argv):
+            raise ValueError("Limit must be followed by a number")
+
+        limit = int(sys.argv[i + 2])
         continue
 
 word = sys.argv[1].lower()
@@ -154,5 +174,8 @@ def lookup(word: str):
 
 synonyms = lookup(word)
 
-for syn in synonyms:
-    print(syn)
+# Reversed so that the first synonym is the most relevant
+synonyms.reverse()
+
+for syn in synonyms[:limit]:
+    print(syn, "\n\n")
