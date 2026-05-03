@@ -17,6 +17,9 @@ It also shells out to `glow` to render formatted terminal output.
 
 - Python 3
 - `op` (1Password CLI)
+
+### Optional
+
 - `glow`
 
 Install Python dependencies with:
