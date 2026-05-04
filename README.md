@@ -57,7 +57,6 @@ Debug output:
 
 Supported flags:
 
-- `--show-related`, `-r`
 - `--limit`, `-l`
 - `--no-cache`
 - `--clear-cache`, `--cache-clear`
