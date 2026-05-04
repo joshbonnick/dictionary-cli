@@ -378,15 +378,21 @@ if audio:
     play_audio(word)
 
 if AI_INSTALLED:
-    prompt = (f"Content: {content}\n\n"
-              f"Instructions: Write three sentences making use of the word: [{word}] and its variants. "
-              f"Use a new line to separate each sentence, starting each with line with a dash. "
-              f"If there is more than one meaning, write three sentences for each meaning. "
-              f"Highlight the word with **"
-              f"Use British English spelling."
-              f"If the word is not simple to pronounce, include its IPA pronunciation (International Phonetic Alphabet, "
-              f"enclosed in slashes / /) and A simple English respelling that reflects "
-              f"pronunciation (easy to read, no IPA symbols), use ## Pronunciation to title that section.")
+    prompt = f"""
+        Content: 
+        {content}\n\n"
+        
+        Instructions: 
+        - Write three sentences making use of the word: [{word}] and its variants.
+        - Use `## Usage Examples` as a title for the usage section.
+        - Use a new line to separate each sentence, starting each with line with a dash.
+        - If there is more than one meaning, write three sentences for each meaning.
+        - Highlight the word with **
+        - Use British English spelling.
+        - Include its IPA pronunciation (International Phonetic Alphabet, enclosed in slashes / /).
+        - A simple British English respelling that reflects pronunciation (easy to read, no IPA symbols).
+        - use ## Pronunciation to title to the pronunciation section.
+    """
 
     ai_usage_examples = subprocess.check_output(['ai', '--raw', prompt], text=True).strip()
-    os.system(f'echo "## Usage Examples\n{ai_usage_examples}" | glow')
+    os.system(f'echo "{ai_usage_examples}" | glow')
