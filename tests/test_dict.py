@@ -62,12 +62,12 @@ def test_flatten_word_lists_prefers_variant_forms(dict_module):
     assert dict_module.SynonymResult._flatten_word_lists(nested) == ["home", "abodes", "house"]
 
 
-def test_from_api_entry_collects_synonyms_related_and_near_antonyms(dict_module):
+def test_from_api_entry_collects_synonyms_related_and_antonyms(dict_module):
     entry = {
         "hwi": {"hw": "bright"},
         "fl": "adjective",
         "shortdef": ["giving off light", "clever"],
-        "meta": {"ants": ["dim"]},
+        "meta": {"ants": [["dim"]]},
         "def": [
             {
                 "sseq": [
@@ -77,7 +77,6 @@ def test_from_api_entry_collects_synonyms_related_and_near_antonyms(dict_module)
                             {
                                 "syn_list": [[{"wd": "brilliant"}]],
                                 "rel_list": [[{"wd": "radiant"}]],
-                                "near_list": [[{"wd": "dull"}]],
                             },
                         ]
                     ]
@@ -93,26 +92,21 @@ def test_from_api_entry_collects_synonyms_related_and_near_antonyms(dict_module)
     assert result.definitions == ["giving off light", "clever"]
     assert result.syns == ["brilliant"]
     assert result.related == ["radiant"]
-    assert result.near_antonyms == ["dull"]
     assert result.antonyms == ["dim"]
 
-
-def test_str_escapes_asterisk_and_hides_related_words_by_default(dict_module):
+def test_str_escapes_asterisk(dict_module):
     result = dict_module.SynonymResult(
         word="co*op",
         part_of_speech="noun",
         definitions=["a cooperative arrangement"],
         syns=["collective"],
         related=["partnership"],
-        near_antonyms=[],
         antonyms=[],
     )
 
-    dict_module.show_related = False
     rendered = str(result)
 
     assert "co\\*op" in rendered
-    assert "## Related words:" not in rendered
 
 
 def test_str_includes_related_words_when_enabled(dict_module):
@@ -122,7 +116,6 @@ def test_str_includes_related_words_when_enabled(dict_module):
         definitions=["one associated with another"],
         syns=["friend"],
         related=["partner"],
-        near_antonyms=[],
         antonyms=[],
     )
 
@@ -161,7 +154,6 @@ def test_lookup_uses_cache_before_http_fetch(dict_module, monkeypatch):
         definitions=["stored result"],
         syns=["saved"],
         related=[],
-        near_antonyms=[],
         antonyms=[],
     )
     dict_module.cache.set("cached", [cached.to_dict()])
@@ -185,7 +177,6 @@ def test_lookup_fetches_and_saves_when_cache_misses(dict_module, monkeypatch):
         definitions=["newly fetched"],
         syns=["new"],
         related=[],
-        near_antonyms=[],
         antonyms=[],
     )
 
