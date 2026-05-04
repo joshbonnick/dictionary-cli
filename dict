@@ -69,6 +69,9 @@ class Cache:
         self.cache = {}
         self.save()
 
+    def keys(self) -> list[str]:
+        return self.cache.keys()
+
 @dataclass
 class SynonymResult:
     word: str
@@ -225,6 +228,10 @@ for i, arg in enumerate(sys.argv[1:]):
 
         limit = int(sys.argv[i + 2])
         continue
+
+    if arg == '--history' or arg == '-h':
+        print('\n'.join(cache.keys()))
+        sys.exit(0)
 
 word = sys.argv[1].lower()
 
