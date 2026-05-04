@@ -207,7 +207,8 @@ def lookup_dictionary(word: str, ref: str = "collegiate") -> list[SynonymResult]
     return [SynonymResult.from_dict_api_entry(entry) for entry in response]
 
 def urlretrieve_with_headers(url, filename):
-    import urllib.request
+    if url == '':
+        return
 
     req = urllib.request.Request(
         url,
@@ -239,19 +240,26 @@ def download_audio(word: str) -> Path | None:
 
     entry = response[0]
 
+    url = None
     try:
-        url = entry['phonetics'][0]['audio']
+        for phonetic in entry['phonetics']:
+            if phonetic['audio'] != '':
+                url = phonetic['audio']
+                break
     except (KeyError, IndexError):
         if debug:
             print("[DEBUG]: Audio not found for", word)
 
         return None
 
+    if not url:
+        return None
+
     try:
         urlretrieve_with_headers(url, audio_path)
     except Exception as e:
         if debug:
-            print("[DEBUG]: Error when trying to download audio", e)
+            print("[DEBUG]: Error when trying to download audio:", e)
         if audio_path.exists():
             audio_path.unlink()
         return None
