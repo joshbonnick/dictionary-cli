@@ -218,6 +218,12 @@ def urlretrieve_with_headers(url, filename):
         f.write(r.read())
 
 def download_audio(word: str) -> Path | None:
+    audio_path = Path.home() / ".cache/dict/audio" / f"{word}.mp3" # ~/.cache/dict/lookups
+    audio_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if audio_path.exists():
+        return audio_path
+
     """Download the mp3 audio file given by api.dictionaryapi.dev response"""
     response = requests.get(
         f"https://api.dictionaryapi.dev/api/v2/entries/en/{word.lower()}"
@@ -240,13 +246,6 @@ def download_audio(word: str) -> Path | None:
             print("[DEBUG]: Audio not found for", word)
 
         return None
-
-
-    audio_path = Path.home() / ".cache/dict/audio" / f"{word}.mp3" # ~/.cache/dict/lookups
-    audio_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if audio_path.exists():
-        return audio_path
 
     try:
         urlretrieve_with_headers(url, audio_path)
