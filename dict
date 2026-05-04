@@ -10,7 +10,6 @@ import json
 import os
 
 enabled_caching=True
-show_related=False
 debug=False
 limit=None
 
@@ -145,7 +144,7 @@ class SynonymResult:
             lines.append(f"\n## Antonyms:\n  {', '.join(self.antonyms)}")
         if self.syns:
             lines.append(f"\n## Synonyms:\n  {', '.join(self.syns)}")
-        if self.related and show_related:
+        if self.related:
             lines.append(f"\n## Related words:\n  {', '.join(self.related)}")
 
         return "\n".join(lines)
@@ -213,10 +212,6 @@ for i, arg in enumerate(sys.argv[1:]):
 
     if arg == '--clear-cache' or arg == '--cache-clear':
         cache.clear()
-        continue
-
-    if arg == '--show-related' or arg == '-r':
-        show_related = True
         continue
 
     if arg == '--debug' or arg == '-d':
