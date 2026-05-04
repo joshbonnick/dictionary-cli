@@ -82,7 +82,6 @@ class SynonymResult:
     definitions: list[str]
     syns: list[str]
     related: list[str]
-    near_antonyms: list[str]
     antonyms: list[str]
 
     @staticmethod
@@ -99,12 +98,11 @@ class SynonymResult:
     def from_api_entry(cls, entry: dict) -> "SynonymResult":
         senses = entry.get("def", [{}])[0].get("sseq", [])
 
-        syns, related, near_antonyms = [], [], []
+        syns, related, antonyms = [], [], []
         for sense_block in senses:
             for _, sense in sense_block:
                 syns      += cls._flatten_word_lists(sense.get("syn_list",  []))
                 related   += cls._flatten_word_lists(sense.get("rel_list",  []))
-                near_antonyms += cls._flatten_word_lists(sense.get("near_list", []))
 
         return cls(
             word=entry["hwi"]["hw"],
@@ -112,8 +110,7 @@ class SynonymResult:
             definitions=entry.get("shortdef", []),
             syns=syns,
             related=related,
-            near_antonyms=near_antonyms,
-            antonyms=entry.get("meta", {}).get("ants", []),
+            antonyms=[antonym for group in entry.get("meta", {}).get("ants", []) for antonym in group],
         )
 
     @classmethod
@@ -124,7 +121,6 @@ class SynonymResult:
             definitions=entry.get("shortdef", []),
             syns=[],
             related=[],
-            near_antonyms=[],
             antonyms=[],
         )
 
@@ -145,6 +141,8 @@ class SynonymResult:
                 lines += [f"  {i+1}. {d}" for i, d in enumerate(self.definitions)]
             else:
                 lines.append(f"## Definition:\n{self.definitions[0]}")
+        if self.antonyms:
+            lines.append(f"\n## Antonyms:\n  {', '.join(self.antonyms)}")
         if self.syns:
             lines.append(f"\n## Synonyms:\n  {', '.join(self.syns)}")
         if self.related and show_related:
