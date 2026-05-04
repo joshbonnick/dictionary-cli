@@ -31,12 +31,6 @@ Basic lookup:
 ./dict heterogeneous
 ```
 
-Show related words:
-
-```bash
-./dict heterogeneous --show-related
-```
-
 Limit results:
 
 ```bash
