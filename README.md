@@ -20,7 +20,7 @@ It also shells out to [glow](https://github.com/charmbracelet/glow) (if it is in
 Install Python dependencies with:
 
 ```bash
-python3 -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ## CLI Usage
@@ -29,6 +29,12 @@ Basic lookup:
 
 ```bash
 ./dict heterogeneous
+```
+
+Play audio (if available):
+
+```bash
+./dict heterogeneous -a
 ```
 
 Limit results:

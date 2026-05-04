@@ -1,7 +1,7 @@
 #!/usr/bin/python3
-
 from pathlib import Path
 from urllib.parse import quote
+import urllib.request
 from dataclasses import dataclass, asdict
 import requests
 import sys
@@ -12,6 +12,7 @@ import os
 enabled_caching=True
 debug=False
 limit=None
+audio=False
 
 DICTIONARY_KEY = os.environ["DICTIONARY_KEY"]
 SYNONYMS_KEY = os.environ["SYNONYMS_KEY"]
@@ -27,6 +28,12 @@ try:
 except subprocess.CalledProcessError as e:
     e.add_note("ai is not installed")
     AI_INSTALLED = False
+
+try:
+    FFMPEG_INSTALLED = subprocess.check_output(['which', 'ffplay']).strip() != ''
+except subprocess.CalledProcessError as e:
+    e.add_note("ffmpeg is not installed")
+    FFMPEG_INSTALLED = False
 
 class Cache:
     _instance = None
@@ -127,7 +134,7 @@ class SynonymResult:
         return asdict(self)
 
     def __str__(self) -> str:
-        lines = [f"# {self.word.upper()}  ({self.part_of_speech})",]
+        lines = [fr"# {self.word.upper()}  ({self.part_of_speech})",]
 
         # Escape asterisks in the word for glow.
         if '*' in self.word:
@@ -199,6 +206,78 @@ def lookup_dictionary(word: str, ref: str = "collegiate") -> list[SynonymResult]
 
     return [SynonymResult.from_dict_api_entry(entry) for entry in response]
 
+def urlretrieve_with_headers(url, filename):
+    import urllib.request
+
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0"}
+    )
+
+    with urllib.request.urlopen(req) as r, open(filename, "wb") as f:
+        f.write(r.read())
+
+def download_audio(word: str) -> Path | None:
+    """Download the mp3 audio file given by api.dictionaryapi.dev response"""
+    response = requests.get(
+        f"https://api.dictionaryapi.dev/api/v2/entries/en/{word.lower()}"
+    )
+
+    if response.status_code != 200:
+        return None
+
+    response = response.json()
+
+    if not isinstance(response, list) or len(response) == 0:
+        return None
+
+    entry = response[0]
+
+    try:
+        url = entry['phonetics'][0]['audio']
+    except (KeyError, IndexError):
+        if debug:
+            print("[DEBUG]: Audio not found for", word)
+
+        return None
+
+
+    audio_path = Path.home() / ".cache/dict/audio" / f"{word}.mp3" # ~/.cache/dict/lookups
+    audio_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if audio_path.exists():
+        return audio_path
+
+    try:
+        urlretrieve_with_headers(url, audio_path)
+    except Exception as e:
+        if debug:
+            print("[DEBUG]: Error when trying to download audio", e)
+        if audio_path.exists():
+            audio_path.unlink()
+        return None
+
+    return audio_path
+
+def play_audio(word: str):
+    """Play the mp3 audio file given by api.dictionaryapi.dev response"""
+    path = download_audio(word)
+    if path is None:
+        return
+
+    if debug:
+        print("[DEBUG]: Attempting to play mp3 audio for", word)
+
+    if FFMPEG_INSTALLED:
+        subprocess.Popen(
+            ["ffplay", str(path), "-autoexit", "-nodisp", "-loglevel", "quiet"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        if debug:
+            print("[DEBUG]: Couldn't play audio, ffmpeg not installed")
+
 if len(sys.argv) < 2:
     print("Usage: dict <word>")
     sys.exit(1)
@@ -206,6 +285,10 @@ if len(sys.argv) < 2:
 cache = Cache()
 
 for i, arg in enumerate(sys.argv[1:]):
+    if arg == '--audio' or arg == '-a':
+        audio = True
+        continue
+
     if arg == '--no-cache':
         enabled_caching = False
         continue
@@ -283,6 +366,9 @@ if GLOW_INSTALLED:
     os.system(f'echo "{content}" | glow -')
 else:
     print(content)
+
+if audio:
+    play_audio(word)
 
 if AI_INSTALLED:
     prompt = (f"Content: {content}\n\n"
