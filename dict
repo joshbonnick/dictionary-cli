@@ -69,8 +69,11 @@ class Cache:
         self.cache = {}
         self.save()
 
-    def keys(self) -> list[str]:
+    def keys(self):
         return self.cache.keys()
+
+    def all(self):
+        return cache.cache.items()
 
 @dataclass
 class SynonymResult:
@@ -230,7 +233,14 @@ for i, arg in enumerate(sys.argv[1:]):
         continue
 
     if arg == '--history' or arg == '-h':
-        print('\n'.join(cache.keys()))
+        lines = []
+        for item in cache.cache:
+            try:
+                lines.append(f"{item}: {cache.get(item)[0]["definitions"][0]}")
+            except KeyError:
+                lines.append(f"{item}")
+
+        print('\n'.join(lines))
         sys.exit(0)
 
 word = sys.argv[1].lower()
